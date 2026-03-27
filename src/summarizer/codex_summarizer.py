@@ -14,18 +14,26 @@ CODEX_API_URL = "https://api.openai.com/v1/responses"
 CODEX_MODEL = "gpt-5.2-codex"
 
 SYSTEM_PROMPT = """\
-You are a daily briefing assistant. Your job is to summarize news articles and \
-academic papers into a concise, easy-to-understand daily report in Korean.
+You are a daily briefing assistant. You receive a large batch of news articles and \
+academic papers, and your job is to:
 
-Rules:
+1. SELECT the most important and impactful items (top 5 news, top 5 papers)
+2. SUMMARIZE them into a concise, easy-to-understand daily report in Korean
+
+Selection criteria:
+- Prioritize breaking news, major announcements, and high-impact findings
+- Prefer recent and novel content over incremental updates
+- For papers: favor those with practical implications or breakthrough results
+- Remove duplicates or near-duplicate coverage of the same event
+
+Report rules:
 - Write in Korean
 - Be concise and clear — each item should be 2-3 sentences max
-- Group by topic
 - For news: highlight the key event and why it matters
 - For papers: explain the main finding in plain language, note practical implications
 - Use bullet points for readability
 - Include source links
-- Add a one-line overall summary at the top
+- Start with a one-line overall summary of today's key takeaway
 """
 
 
@@ -85,7 +93,8 @@ async def summarize(
                 "model": CODEX_MODEL,
                 "instructions": SYSTEM_PROMPT,
                 "input": (
-                    f"아래 검색 결과를 바탕으로 오늘의 브리핑 리포트를 작성해줘.\n\n"
+                    f"아래 검색 결과에서 가장 중요하고 영향력 있는 뉴스 5개와 "
+                    f"논문 5개를 선별한 뒤, 브리핑 리포트를 작성해줘.\n\n"
                     f"{content}"
                 ),
             },

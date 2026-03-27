@@ -73,8 +73,8 @@ class ReportBot(commands.Bot):
             try:
                 results = await aggregate_search(
                     tags=topic.tags,
-                    news_count=5,
-                    paper_count=5,
+                    news_count=25,
+                    paper_count=25,
                     paper_year_from=datetime.now().year,
                 )
                 summary = await summarize(access_token, results)
