@@ -17,7 +17,7 @@ from discord.ext import commands
 from src.auth.codex_oauth import CodexAuth
 from src.topics.manager import TopicManager
 from src.search.aggregator import aggregate_search
-from src.summarizer.codex_summarizer import summarize
+from src.summarizer.codex_summarizer import summarize, suggest_tags
 
 
 class ReportBot(commands.Bot):
@@ -40,6 +40,7 @@ class ReportBot(commands.Bot):
         self.tree.add_command(_list_topics_cmd(self))
         self.tree.add_command(_add_tags_cmd(self))
         self.tree.add_command(_remove_tags_cmd(self))
+        self.tree.add_command(_suggest_tags_cmd(self))
         self.tree.add_command(_report_now_cmd(self))
         await self.tree.sync()
 
@@ -193,6 +194,31 @@ def _remove_tags_cmd(bot: ReportBot):
             )
         except ValueError as e:
             await interaction.response.send_message(f"❌ {e}")
+    return cmd
+
+
+def _suggest_tags_cmd(bot: ReportBot):
+    @app_commands.command(name="suggest_tags", description="AI가 관심 분야에 맞는 검색 태그를 추천합니다")
+    @app_commands.describe(
+        topic_name="분야 이름 (예: 네트워크 약리학)",
+        description="분야에 대한 간단한 설명 (선택사항)",
+    )
+    async def cmd(interaction: discord.Interaction, topic_name: str, description: str = ""):
+        await interaction.response.defer(thinking=True)
+        try:
+            access_token = await bot.codex_auth.get_access_token()
+            tags = await suggest_tags(access_token, topic_name, description)
+            if tags:
+                tag_str = ", ".join(tags)
+                await interaction.followup.send(
+                    f"🏷️ **{topic_name}** 추천 태그:\n"
+                    f"```\n{tag_str}\n```\n"
+                    f"💡 이 태그들을 `/add_topic`의 tags 필드에 복사해서 사용하세요!"
+                )
+            else:
+                await interaction.followup.send("❌ 태그 추천에 실패했습니다. 다시 시도해주세요.")
+        except Exception as e:
+            await interaction.followup.send(f"❌ 오류: {e}")
     return cmd
 
 

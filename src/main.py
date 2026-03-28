@@ -124,6 +124,33 @@ def remove_tags(topic_name: str, tags: str):
         click.echo(f"❌ {e}")
 
 
+# --- Tag suggestion command ---
+
+@cli.command(name="suggest-tags")
+@click.argument("topic_name")
+@click.option("--desc", "-d", default="", help="분야에 대한 설명 (선택)")
+def suggest_tags_cmd(topic_name: str, desc: str):
+    """Suggest search tags for a topic using AI."""
+    asyncio.run(_suggest_tags_cli(topic_name, desc))
+
+
+async def _suggest_tags_cli(topic_name: str, desc: str):
+    from src.auth.codex_oauth import CodexAuth
+    from src.summarizer.codex_summarizer import suggest_tags
+
+    auth = CodexAuth()
+    access_token = await auth.get_access_token()
+    tags = await suggest_tags(access_token, topic_name, desc)
+
+    if tags:
+        click.echo(f"\n🏷️  '{topic_name}' 추천 태그:")
+        click.echo(f"   {', '.join(tags)}")
+        click.echo(f"\n💡 사용 예시:")
+        click.echo(f'   python -m src add "{topic_name}" -d "설명" -t "{", ".join(tags)}"')
+    else:
+        click.echo("❌ 태그 추천에 실패했습니다.")
+
+
 # --- Report command (CLI only, no Discord) ---
 
 @cli.command()

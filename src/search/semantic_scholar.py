@@ -1,14 +1,21 @@
 """
 Semantic Scholar API search.
 
-Free API, no key required (rate limited to 100 req/5min).
+Free API, no key required. Unauthenticated users share a global
+1,000 RPS pool, so 429 errors are common under load.
+Implements exponential backoff with jitter on 429 responses.
 """
 
+import asyncio
+import random
 from dataclasses import dataclass
 
 import httpx
 
 SEMANTIC_SCHOLAR_API = "https://api.semanticscholar.org/graph/v1/paper/search"
+
+MAX_RETRIES = 4
+BASE_DELAY = 2  # seconds
 
 
 @dataclass
@@ -29,14 +36,7 @@ async def search_papers(
 ) -> list[Paper]:
     """
     Search Semantic Scholar for papers matching the given tags.
-
-    Args:
-        tags: Search keywords.
-        max_results: Maximum number of papers to return.
-        year_from: Only return papers from this year onwards.
-
-    Returns:
-        List of Paper results.
+    Retries with exponential backoff on 429 rate limit errors.
     """
     query = " ".join(tags)
     params = {
@@ -48,10 +48,19 @@ async def search_papers(
         params["year"] = f"{year_from}-"
 
     async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            SEMANTIC_SCHOLAR_API, params=params, timeout=15
-        )
-        resp.raise_for_status()
+        for attempt in range(MAX_RETRIES + 1):
+            resp = await client.get(
+                SEMANTIC_SCHOLAR_API, params=params, timeout=15
+            )
+            if resp.status_code != 429:
+                resp.raise_for_status()
+                break
+            if attempt == MAX_RETRIES:
+                resp.raise_for_status()  # raise on final attempt
+            # Exponential backoff with jitter
+            delay = BASE_DELAY * (2 ** attempt) + random.uniform(0, 1)
+            await asyncio.sleep(delay)
+
         data = resp.json()
 
     papers = []
